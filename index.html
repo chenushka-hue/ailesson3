@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Тренажер: Правда и вымыслы об ИИ</title>
+    <style>
+        :root {
+            --primary: #5c6bc0;
+            --primary-hover: #3f51b5;
+            --bg: #f0f2f5;
+            --text: #333;
+            --fact: #4caf50;
+            --doubt: #ffb300;
+            --myth: #e53935;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+        .app-container {
+            background: white;
+            width: 95%;
+            max-width: 1100px;
+            height: 85vh;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        .header {
+            background: var(--primary);
+            color: white;
+            padding: 15px 25px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 1.2rem;
+            font-weight: bold;
+        }
+        .content {
+            flex-grow: 1;
+            padding: 30px;
+            overflow-y: auto;
+            position: relative;
+        }
+        .page {
+            display: none;
+            animation: fadeIn 0.4s;
+        }
+        .page.active {
+            display: block;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .footer {
+            padding: 15px 30px;
+            border-top: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+            background: #fafafa;
+        }
+        button {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            transition: background 0.2s;
+        }
+        button:hover { background: var(--primary-hover); }
+        button:disabled { background: #bdbdbd; cursor: not-allowed; }
+        .btn-reset { background: #757575; }
+        .btn-reset:hover { background: #616161; }
+        .btn-check { background: #4caf50; }
+        .btn-check:hover { background: #388e3c; }
+
+        .controls { display: flex; gap: 15px; margin-top: 20px; }
+        .success-msg { color: #2e7d32; font-weight: bold; margin-left: 15px; display: none; align-items: center; }
+
+        /* Drag and Drop Zones */
+        .drag-container { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 20px; min-height: 80px; padding: 15px; background: #e8eaf6; border-radius: 8px; border: 1px solid #c5cae9; }
+        .draggable { background: white; padding: 12px 15px; border-radius: 6px; cursor: pointer; border: 2px solid #e0e0e0; box-shadow: 0 2px 4px rgba(0,0,0,0.05); font-size: 15px; transition: 0.1s; user-select: none; }
+        .draggable:hover { border-color: var(--primary); }
+        .draggable.selected { border-color: var(--primary); background: #e8eaf6; transform: scale(0.95); }
+        .zones { display: flex; gap: 15px; }
+        .zone { flex: 1; border-radius: 8px; padding: 15px; min-height: 250px; border: 2px dashed #ccc; display: flex; flex-direction: column; gap: 10px; }
+        .zone h3 { margin-top: 0; text-align: center; font-size: 1.1rem; }
+        
+        .zone-fact { border-color: var(--fact); background: #e8f5e9; }
+        .zone-doubt { border-color: var(--doubt); background: #fff8e1; }
+        .zone-myth { border-color: var(--myth); background: #ffebee; }
+
+        /* Theory & Text Boxes */
+        .theory-box { background: #e3f2fd; padding: 20px; border-left: 5px solid #2196f3; border-radius: 4px; font-size: 17px; line-height: 1.6; margin-bottom: 20px;}
+        .clickable-text span { cursor: pointer; padding: 4px 6px; border-radius: 4px; transition: 0.2s; display: inline-block; margin: 2px 0; border: 1px solid transparent; }
+        .clickable-text span:hover { background: #eeeeee; border-color: #bdbdbd; }
+        .found-error { background: #ffcdd2 !important; color: #c62828; font-weight: bold; border-color: #ef9a9a !important; }
+
+        /* Image Task */
+        .image-container { display: flex; gap: 20px; }
+        .img-placeholder { width: 50%; background: #ddd; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-style: italic; min-height: 350px; background-size: cover; background-position: center; border: 1px solid #ccc; color: #555; text-align: center; padding: 20px;}
+        .error-list { width: 50%; display: flex; flex-direction: column; gap: 8px; }
+        .error-item { padding: 12px; border: 2px solid #e0e0e0; border-radius: 6px; cursor: pointer; background: #fff; transition: 0.2s; }
+        .error-item:hover { background: #f5f5f5; }
+        .error-item.selected { background: #ffcdd2; border-color: #f44336; }
+        
+        /* Lab Task */
+        .lab-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; }
+        .robot-card { background: #fff; border: 1px solid #ccc; padding: 15px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        .robot-card h4 { margin: 0 0 10px 0; color: var(--primary); font-size: 1.1rem; border-bottom: 2px solid #eee; padding-bottom: 5px; }
+        select { width: 100%; padding: 10px; border-radius: 4px; border: 1px solid #ccc; font-size: 15px; margin-top: 10px; outline: none; }
+        
+        /* Textarea */
+        textarea { width: 100%; height: 200px; padding: 15px; border-radius: 8px; border: 2px solid #ccc; font-size: 16px; font-family: inherit; resize: vertical; margin-bottom: 10px; box-sizing: border-box;}
+        textarea:focus { border-color: var(--primary); outline: none; }
+        .char-count { font-size: 14px; color: #666; text-align: right; }
+    </style>
+</head>
+<body>
+
+<div class="app-container">
+    <div class="header">
+        <div id="slide-title">Модуль 1: Правда и вымыслы об ИИ</div>
+        <div id="page-counter">1 / 9</div>
+    </div>
+
+    <div class="content">
+        
+        <!-- Слайд 1: Введение -->
+        <div class="page active" id="page-1">
+            <h2>Добро пожаловать в тренажер!</h2>
+            <div class="theory-box">
+                <p>Искусственный интеллект стремительно развивается. Вокруг него много слухов и мифов, которые возникают из-за того, что люди не всегда понимают природу этого явления.</p>
+                <p>В этом тренажере вам предстоит выполнить серию практических заданий. <b>Внимание:</b> вы не сможете перейти к следующему заданию, пока не выполните текущее без ошибок.</p>
+                <p>Готовы? Нажмите «Далее».</p>
+            </div>
+        </div>
+
+        <!-- Слайд 2: Светофор -->
+        <div class="page" id="page-2">
+            <h2>Задание 1: Светофор фактов и мифов об ИИ</h2>
+            <p>Распределите все карточки по колонкам. Нажмите на карточку, а затем на колонку, в которую хотите её отправить.</p>
+            <div class="drag-container" id="source-items-1"></div>
+            <div class="zones">
+                <div class="zone zone-fact" onclick="moveToZone(this, 1)">
+                    <h3 style="color:var(--fact)">+ Верю, это правда</h3>
+                </div>
+                <div class="zone zone-doubt" onclick="moveToZone(this, 1)">
+                    <h3 style="color:var(--doubt)">... Сомневаюсь</h3>
+                </div>
+                <div class="zone zone-myth" onclick="moveToZone(this, 1)">
+                    <h3 style="color:var(--myth)">! Точно миф</h3>
+                </div>
+            </div>
+            <div class="controls">
+                <button class="btn-check" onclick="checkTask1()">Проверить ответы</button>
+                <button class="btn-reset" onclick="resetTask1()">Сбросить ответы</button>
+                <span class="success-msg" id="msg-1">✔ Задание выполнено! Доступ к следующему этапу открыт.</span>
+            </div>
+        </div>
+
+        <!-- Слайд 3: ИИ vs Роботы (Теория) -->
+        <div class="page" id="page-3">
+            <h2>Искусственный интеллект — это роботы?</h2>
+            <div class="theory-box">
+                <p>Многие думают, что ИИ — это железные роботы, похожие на людей. Это не так.</p>
+                <ul>
+                    <li><b>Искусственный интеллект (программа)</b> — это вычислительные методы, которые анализируют данные и принимают решения. У него нет физического тела (например: голосовой помощник Алиса).</li>
+                    <li><b>Робот (устройство)</b> — это техническое устройство с механизмом. Он может перемещаться и трогать предметы (например: робот-пылесос).</li>
+                </ul>
+                <p>ИИ может быть «мозгом» робота, но сам по себе это просто программа.</p>
+            </div>
+        </div>
+
+        <!-- Слайд 4: ИИ vs Роботы (Практика) -->
+        <div class="page" id="page-4">
+            <h2>Задание 2: Кто есть кто?</h2>
+            <p>Определите, что перед вами: программа (ИИ), у которой нет тела, или физическое устройство (Робот).</p>
+            <div class="drag-container" id="source-items-2"></div>
+            <div class="zones">
+                <div class="zone" style="border-color: #2196f3; background: #e3f2fd;" onclick="moveToZone(this, 2)">
+                    <h3 style="color:#1976d2">Искусственный интеллект (Программа)</h3>
+                </div>
+                <div class="zone" style="border-color: #ff9800; background: #fff3e0;" onclick="moveToZone(this, 2)">
+                    <h3 style="color:#f57c00">Робот (Физическое устройство)</h3>
+                </div>
+            </div>
+            <div class="controls">
+                <button class="btn-check" onclick="checkTask2()">Проверить ответы</button>
+                <button class="btn-reset" onclick="resetTask2()">Сбросить ответы</button>
+                <span class="success-msg" id="msg-2">✔ Отлично! Вы научились отличать программы от устройств.</span>
+            </div>
+        </div>
+
+        <!-- Слайд 5: Галлюцинации (Теория) -->
+        <div class="page" id="page-5">
+            <h2>Галлюцинации искусственного интеллекта</h2>
+            <div class="theory-box">
+                <p>ИИ не думает, как человек. Он просто собирает ответы из миллионов примеров. Если данных мало, ИИ начинает выдумывать факты, генерировать фальшивые ссылки или рисовать несуществующие вещи.</p>
+                <p>Такие уверенные, но ложные ответы называются <b>«галлюцинациями»</b>. Поэтому информацию от нейросетей всегда нужно проверять!</p>
+            </div>
+        </div>
+
+        <!-- Слайд 6: Галлюцинации (Картинка) -->
+        <div class="page" id="page-6">
+            <h2>Задание 3: Найди визуальные ошибки</h2>
+            <p>Нейросеть Kandinsky попросили нарисовать класс с партими и портретом Ломоносова. Отметьте в списке справа <b>4 грубые ошибки (галлюцинации)</b>, допущенные ИИ.</p>
+            <div class="image-container">
+                <div class="img-placeholder" style="background-image: url('lom.jpeg'); text-align: center;">
+</div>
+
+                <div class="error-list" id="visual-errors">
+                    <div class="error-item" data-error="true" onclick="toggleItem(this)">Учитель в парике XVIII века и одет несовременно</div>
+                    <div class="error-item" data-error="false" onclick="toggleItem(this)">В классе присутствуют дети и парты</div>
+                    <div class="error-item" data-error="true" onclick="toggleItem(this)">Доска расположена за спинами учеников</div>
+                    <div class="error-item" data-error="false" onclick="toggleItem(this)">Ученики сидят за партами и пишут</div>
+                    <div class="error-item" data-error="true" onclick="toggleItem(this)">Парта стоит прямо по центру прохода</div>
+                    <div class="error-item" data-error="true" onclick="toggleItem(this)">Ломоносов находится не на портрете, а стоит в классе</div>
+                </div>
+            </div>
+            <div class="controls">
+                <button class="btn-check" onclick="checkTask3()">Проверить</button>
+                <span class="success-msg" id="msg-3">✔ Все ошибки найдены верно!</span>
+            </div>
+        </div>
+
+        <!-- Слайд 7: Галлюцинации (Текст) -->
+        <div class="page" id="page-7">
+            <h2>Задание 4: Договор динозавров и египтян</h2>
+            <p>Генератор текстов написал "Секретный договор". Нажмите на <b>4 предложения</b>, которые являются исторической выдумкой (галлюцинацией) нейросети.</p>
+            <div class="theory-box clickable-text" id="text-container">
+                <span data-error="true" onclick="toggleText(this)">Динозавры обучают египтян строительству пирамид и храмов.</span>
+                <span data-error="false" onclick="toggleText(this)">Древние египтяне строили массивные сооружения из каменных блоков.</span>
+                <span data-error="true" onclick="toggleText(this)">Динозавры делятся знаниями о строительстве, используя свои мощные тела как краны.</span>
+                <span data-error="false" onclick="toggleText(this)">Динозавры вымерли за много миллионов лет до появления цивилизации людей.</span>
+                <span data-error="true" onclick="toggleText(this)">Египтяне обучают динозавров письменности и передают им секреты магии.</span>
+                <span data-error="false" onclick="toggleText(this)">В Древнем Египте писали иероглифами на папирусе.</span>
+                <span data-error="true" onclick="toggleText(this)">Египтяне и динозавры договариваются о взаимовыгодном обмене ресурсами.</span>
+            </div>
+            <div class="controls">
+                <button class="btn-check" onclick="checkTask4()">Проверить текст</button>
+                <span class="success-msg" id="msg-4">✔ Отлично! Вы не дали нейросети обмануть себя.</span>
+            </div>
+        </div>
+
+        <!-- Слайд 8: Лаборатория ИИ -->
+        <div class="page" id="page-8">
+            <h2>Задание 5: Лаборатория ИИ - Ограничения роботов</h2>
+            <p>У ИИ и роботов есть ограничения. Подберите к каждому роботу-специалисту ситуацию (ограничение), в которой человека <b>нельзя</b> заменить роботом.</p>
+            
+            <div class="lab-grid">
+                <div class="robot-card">
+                    <h4>📦 Робот-грузчик</h4>
+                    <p>Навык: Считает коробки, перевозит грузы.</p>
+                    <select id="lab-1">
+                        <option value="0">Выберите ограничение...</option>
+                        <option value="doctor">Не может эмоционально поддержать больного</option>
+                        <option value="loader">Не может принять решение в нестандартной ситуации (маршрут перекрыт)</option>
+                        <option value="space">Не умеет действовать в нештатной ситуации в космосе</option>
+                        <option value="builder">Не может себя починить при поломке</option>
+                    </select>
+                </div>
+                
+                <div class="robot-card">
+                    <h4>🛠 Робот-сборщик</h4>
+                    <p>Навык: Распознает детали на конвейере.</p>
+                    <select id="lab-2">
+                        <option value="0">Выберите ограничение...</option>
+                        <option value="doctor">Не может эмоционально поддержать больного</option>
+                        <option value="loader">Не может принять решение в нестандартной ситуации (маршрут перекрыт)</option>
+                        <option value="space">Не умеет действовать в нештатной ситуации в космосе</option>
+                        <option value="builder">Не может себя починить при поломке</option>
+                    </select>
+                </div>
+
+                <div class="robot-card">
+                    <h4>⚕️ Помощник врача (ИИ)</h4>
+                    <p>Навык: Сравнивает снимки, анализирует кардиограмму.</p>
+                    <select id="lab-3">
+                        <option value="0">Выберите ограничение...</option>
+                        <option value="doctor">Не может эмоционально поддержать больного</option>
+                        <option value="loader">Не может принять решение в нестандартной ситуации (маршрут перекрыт)</option>
+                        <option value="space">Не умеет действовать в нештатной ситуации в космосе</option>
+                        <option value="builder">Не может себя починить при поломке</option>
+                    </select>
+                </div>
+
+                <div class="robot-card">
+                    <h4>🚀 Робот-космонавт</h4>
+                    <p>Навык: Анализирует датчики в опасных условиях.</p>
+                    <select id="lab-4">
+                        <option value="0">Выберите ограничение...</option>
+                        <option value="doctor">Не может эмоционально поддержать больного</option>
+                        <option value="loader">Не может принять решение в нестандартной ситуации (маршрут перекрыт)</option>
+                        <option value="space">Не умеет действовать в нештатной ситуации в космосе</option>
+                        <option value="builder">Не может себя починить при поломке</option>
+                    </select>
+                </div>
+            </div>
+            <div class="controls">
+                <button class="btn-check" onclick="checkTask5()">Проверить соответствия</button>
+                <span class="success-msg" id="msg-5">✔ Верно! ИИ справляется с рутиной, но нестандартные решения за человеком.</span>
+            </div>
+        </div>
+
+        <!-- Слайд 9: Эссе -->
+        <div class="page" id="page-9">
+            <h2>Задание 6: Рефлексия (Открытый ответ)</h2>
+            <p>Вы узнали много нового о возможностях и мифах ИИ. Напишите развернутый ответ (2-3 абзаца) на вопрос:<br><br><b>Почему искусственный интеллект — это лишь умный инструмент в руках человека, и какие важные человеческие качества он никогда не сможет скопировать? Приведите примеры из заданий.</b></p>
+            
+            <textarea id="essay" placeholder="Начните писать здесь... (минимум 150 символов)" oninput="updateCharCount()"></textarea>
+            <div class="char-count">Введено символов: <span id="char-counter">0</span> / 150</div>
+            
+            <div class="controls">
+                <button class="btn-check" id="btn-submit-essay" onclick="checkTask6()">Сдать работу</button>
+                <button class="btn-check" id="btn-download-essay" onclick="downloadEssay()" style="display: none; background: #2196f3;">💾 Скачать ответ (.txt)</button>
+                <span class="success-msg" id="msg-6">✔ Работа успешно сохранена! Вы можете скачать её.</span>
+            </div>
+        </div>
+
+    </div>
+
+    <div class="footer">
+        <button id="btn-prev" onclick="changePage(-1)" disabled>Назад</button>
+        <button id="btn-next" onclick="changePage(1)">Далее</button>
+    </div>
+</div>
+
+<script>
+    let currentPage = 1;
+    const totalPages = 9;
+    
+    // Страницы, требующие решения для прохода дальше (слайды 2, 4, 6, 7, 8, 9)
+    const requiresValidation = {
+        2: false, 4: false, 6: false, 7: false, 8: false, 9: false
+    };
+
+    let selectedItem1 = null;
+    let selectedItem2 = null;
+
+    // Данные для Задания 1
+    const task1Data = [
+        { text: "ИИ отличает кошку от собаки", type: "fact" },
+        { text: "ИИ помогает искать болезни", type: "fact" },
+        { text: "ИИ учится на данных", type: "fact" },
+        { text: "ИИ быстро считает уравнения", type: "fact" },
+        { text: "ИИ может написать книгу сам, без идеи человека", type: "doubt" },
+        { text: "ИИ сопереживает человеку", type: "doubt" },
+        { text: "ИИ точно предсказывает будущее", type: "doubt" },
+        { text: "ИИ знает всё и не ошибается", type: "myth" },
+        { text: "ИИ умеет обижаться и злиться", type: "myth" },
+        { text: "Роботы полностью заменят людей", type: "myth" },
+        { text: "ИИ обладает магической силой", type: "myth" }
+    ];
+
+    // Данные для Задания 2
+    const task2Data = [
+        { text: "Генератор картинок Kandinsky", type: "ai" },
+        { text: "Квадрокоптер", type: "robot" },
+        { text: "Голосовой помощник Алиса", type: "ai" },
+        { text: "Умный пылесос", type: "robot" },
+        { text: "Приложение Яндекс.Переводчик", type: "ai" },
+        { text: "Промышленный манипулятор (сборщик машин)", type: "robot" },
+        { text: "Программа GigaChat", type: "ai" },
+        { text: "Яндекс Ровер (доставщик еды)", type: "robot" }
+    ];
+
+    function init() {
+        renderDraggables(task1Data, 'source-items-1', 1);
+        renderDraggables(task2Data, 'source-items-2', 2);
+        updateButtons();
+    }
+
+    // Рендер карточек
+    function renderDraggables(data, containerId, taskNum) {
+        const container = document.getElementById(containerId);
+        container.innerHTML = '';
+        data.sort(() => Math.random() - 0.5).forEach(item => {
+            let div = document.createElement('div');
+            div.className = 'draggable';
+            div.textContent = item.text;
+            div.dataset.type = item.type;
+            div.onclick = function() { selectItem(this, taskNum); };
+            container.appendChild(div);
+        });
+    }
+
+    // Выбор карточки
+    function selectItem(el, task) {
+        if(task === 1) {
+            if (selectedItem1) selectedItem1.classList.remove('selected');
+            selectedItem1 = el;
+            selectedItem1.classList.add('selected');
+        } else {
+            if (selectedItem2) selectedItem2.classList.remove('selected');
+            selectedItem2 = el;
+            selectedItem2.classList.add('selected');
+        }
+    }
+
+    // Перемещение карточки в зону
+    function moveToZone(zone, task) {
+        if (task === 1 && selectedItem1) {
+            selectedItem1.classList.remove('selected');
+            selectedItem1.style.borderColor = "#e0e0e0";
+            selectedItem1.style.backgroundColor = "white";
+            zone.appendChild(selectedItem1);
+            selectedItem1 = null;
+        }
+        if (task === 2 && selectedItem2) {
+            selectedItem2.classList.remove('selected');
+            selectedItem2.style.borderColor = "#e0e0e0";
+            selectedItem2.style.backgroundColor = "white";
+            zone.appendChild(selectedItem2);
+            selectedItem2 = null;
+        }
+    }
+
+    // --- ПРОВЕРКА ЗАДАНИЯ 1 ---
+    function checkTask1() {
+        let isCorrect = true;
+        let sourceEmpty = document.getElementById('source-items-1').children.length === 0;
+
+        ['fact', 'doubt', 'myth'].forEach(type => {
+            const cards = document.querySelector(`.zone-${type}`).querySelectorAll('.draggable');
+            cards.forEach(card => {
+                if (card.dataset.type !== type) {
+                    card.style.borderColor = "#f44336";
+                    card.style.backgroundColor = "#ffcdd2";
+                    isCorrect = false;
+                } else {
+                    card.style.borderColor = "#4caf50";
+                    card.style.backgroundColor = "#c8e6c9";
+                }
+            });
+        });
+
+        if(isCorrect && sourceEmpty) {
+            requiresValidation[2] = true;
+            document.getElementById('msg-1').style.display = "inline-flex";
+            updateButtons();
+        } else {
+            alert(sourceEmpty ? "Есть ошибки! Проверьте карточки, выделенные красным." : "Сначала распределите все карточки!");
+        }
+    }
+
+    function resetTask1() {
+        const zones = document.querySelectorAll('#page-2 .zone');
+        const source = document.getElementById('source-items-1');
+        zones.forEach(z => {
+            const cards = z.querySelectorAll('.draggable');
+            cards.forEach(c => {
+                c.style.borderColor = "#e0e0e0";
+                c.style.backgroundColor = "white";
+                source.appendChild(c);
+            });
+        });
+        requiresValidation[2] = false;
+        document.getElementById('msg-1').style.display = "none";
+        updateButtons();
+    }
+
+    // --- ПРОВЕРКА ЗАДАНИЯ 2 ---
+    function checkTask2() {
+        let isCorrect = true;
+        let sourceEmpty = document.getElementById('source-items-2').children.length === 0;
+
+        const aiZoneCards = document.querySelectorAll('#page-4 .zone')[0].querySelectorAll('.draggable');
+        const robotZoneCards = document.querySelectorAll('#page-4 .zone')[1].querySelectorAll('.draggable');
+
+        aiZoneCards.forEach(card => {
+            if(card.dataset.type !== 'ai') { card.style.backgroundColor = "#ffcdd2"; isCorrect = false; }
+            else card.style.backgroundColor = "#c8e6c9";
+        });
+        robotZoneCards.forEach(card => {
+            if(card.dataset.type !== 'robot') { card.style.backgroundColor = "#ffcdd2"; isCorrect = false; }
+            else card.style.backgroundColor = "#c8e6c9";
+        });
+
+        if(isCorrect && sourceEmpty) {
+            requiresValidation[4] = true;
+            document.getElementById('msg-2').style.display = "inline-flex";
+            updateButtons();
+        } else {
+            alert(sourceEmpty ? "Есть ошибки! Напоминание: программа — это мозг, устройство — тело." : "Распределите все карточки!");
+        }
+    }
+
+    function resetTask2() {
+        const zones = document.querySelectorAll('#page-4 .zone');
+        const source = document.getElementById('source-items-2');
+        zones.forEach(z => {
+            const cards = z.querySelectorAll('.draggable');
+            cards.forEach(c => {
+                c.style.backgroundColor = "white";
+                source.appendChild(c);
+            });
+        });
+        requiresValidation[4] = false;
+        document.getElementById('msg-2').style.display = "none";
+        updateButtons();
+    }
+
+    // --- ПРОВЕРКА ЗАДАНИЯ 3 (Картинка) ---
+    function toggleItem(el) { el.classList.toggle('selected'); }
+    
+    function checkTask3() {
+        let correctSelections = 0;
+        let falseSelections = 0;
+        document.querySelectorAll('#visual-errors .error-item').forEach(item => {
+            let isSelected = item.classList.contains('selected');
+            if(isSelected && item.dataset.error === "true") correctSelections++;
+            if(isSelected && item.dataset.error === "false") falseSelections++;
+        });
+
+        if(correctSelections === 4 && falseSelections === 0) {
+            requiresValidation[6] = true;
+            document.getElementById('msg-3').style.display = "inline-flex";
+            updateButtons();
+        } else {
+            alert("Найдено не всё или выделено лишнее! Нужно найти ровно 4 ошибки, которых не бывает в реальности.");
+        }
+    }
+
+    // --- ПРОВЕРКА ЗАДАНИЯ 4 (Текст) ---
+    function toggleText(el) { el.classList.toggle('found-error'); }
+
+    function checkTask4() {
+        let correctSelections = 0;
+        let falseSelections = 0;
+        document.querySelectorAll('#text-container span').forEach(item => {
+            let isSelected = item.classList.contains('found-error');
+            if(isSelected && item.dataset.error === "true") correctSelections++;
+            if(isSelected && item.dataset.error === "false") falseSelections++;
+        });
+
+        if(correctSelections === 4 && falseSelections === 0) {
+            requiresValidation[7] = true;
+            document.getElementById('msg-4').style.display = "inline-flex";
+            updateButtons();
+        } else {
+            alert("Внимательнее! Вам нужно выделить 4 фантастических предложения. Если выделили исторический факт - снимите выделение.");
+        }
+    }
+
+    // --- ПРОВЕРКА ЗАДАНИЯ 5 (Лаборатория) ---
+    function checkTask5() {
+        const a1 = document.getElementById('lab-1').value;
+        const a2 = document.getElementById('lab-2').value;
+        const a3 = document.getElementById('lab-3').value;
+        const a4 = document.getElementById('lab-4').value;
+
+        if (a1 === '0' || a2 === '0' || a3 === '0' || a4 === '0') {
+            alert("Выберите ограничения для всех роботов!");
+            return;
+        }
+
+        if(a1 === 'loader' && a2 === 'builder' && a3 === 'doctor' && a4 === 'space') {
+            requiresValidation[8] = true;
+            document.getElementById('msg-5').style.display = "inline-flex";
+            updateButtons();
+        } else {
+            alert("Есть несоответствия. Подумайте, какое ограничение логично мешает именно этому роботу.");
+        }
+    }
+
+    // --- ПРОВЕРКА ЗАДАНИЯ 6 (Эссе) ---
+    function updateCharCount() {
+        const len = document.getElementById('essay').value.length;
+        document.getElementById('char-counter').textContent = len;
+    }
+
+    function checkTask6() {
+        const len = document.getElementById('essay').value.length;
+        if(len >= 150) {
+            requiresValidation[9] = true;
+            document.getElementById('msg-6').style.display = "inline-flex";
+            document.getElementById('btn-submit-essay').style.display = "none"; 
+            document.getElementById('btn-download-essay').style.display = "inline-block"; 
+            updateButtons();
+        } else {
+            alert(`Ваш ответ слишком короткий (${len} симв.). Напишите развернуто, нужно не менее 150 символов!`);
+        }
+    }
+
+    // --- НОВЫЙ МЕХАНИЗМ СКАЧИВАНИЯ ---
+    function downloadEssay() {
+        const text = document.getElementById('essay').value;
+        const encodedText = encodeURIComponent(text);
+        const a = document.createElement('a');
+        a.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodedText);
+        a.setAttribute('download', 'Ответ_по_ИИ.txt');
+        a.style.display = 'none';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+    }
+
+    // --- ПАГИНАЦИЯ ---
+    function updateButtons() {
+        document.getElementById('btn-prev').disabled = currentPage === 1;
+        
+        let canGoNext = true;
+        if (requiresValidation[currentPage] === false) {
+            canGoNext = false; 
+        }
+        
+        const btnNext = document.getElementById('btn-next');
+        btnNext.disabled = !canGoNext;
+        if(currentPage === totalPages) btnNext.style.display = 'none';
+        else btnNext.style.display = 'block';
+    }
+
+    function changePage(step) {
+        document.getElementById(`page-${currentPage}`).classList.remove('active');
+        currentPage += step;
+        document.getElementById(`page-${currentPage}`).classList.add('active');
+        document.getElementById('page-counter').textContent = `${currentPage} / ${totalPages}`;
+        updateButtons();
+    }
+
+    window.onload = init;
+</script>
+
+</body>
+</html>
